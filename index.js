@@ -25,7 +25,7 @@ export function provideLinter() {
         child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout, stderr) {
           if (error) {
             try {
-              const result = JSON.parse(stdout.toString())
+              const result = JSON.parse(lastline(stdout.toString()))
               const nestedLintMessages = result.messages.map(function(m) { return formatResult(m, cwd) })
               const lintMessages = [].concat(...nestedLintMessages)
               resolve(lintMessages)
@@ -40,6 +40,11 @@ export function provideLinter() {
       })
     }
   }
+}
+
+function lastline(stdout) {
+  const lines = stdout.trim().split("\n")
+  return lines[lines.length - 1]
 }
 
 function formatResult({file, type, data}, cwd) {

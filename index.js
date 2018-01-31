@@ -30,8 +30,12 @@ export function provideLinter() {
               const lintMessages = [].concat(...nestedLintMessages)
               resolve(lintMessages)
             } catch (e) {
-              console.error(e)
-              reject(stdout.toString())
+              atom.notifications.addError("linter-elm-analyse", {
+                description: stdout.toString(),
+                dismissable: true,
+                stack: e.stack
+              })
+              resolve([])
             }
           } else {
             resolve([])

@@ -11,8 +11,8 @@ export function deactivate() {
   // Do nothing currently
 }
 
-
 const child_process = require('child_process')
+
 export function provideLinter() {
   return {
     name: 'elm-analyse',
@@ -20,10 +20,7 @@ export function provideLinter() {
     lintsOnChange: true,
     grammarScopes: ['source.elm'],
     lint(textEditor) {
-      const editorPath = textEditor.getPath()
       const cwd = atom.project.getPaths()[0]
-
-      // Do something async
       return new Promise(function(resolve, reject) {
         child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout, stderr) {
           if (error) {
@@ -58,6 +55,7 @@ function formatResult({file, type, data}, cwd) {
 }
 
 const path = require('path')
+
 function singleMessage(type, file, desc, props, range, cwd) {
   return {
     severity: 'warning',

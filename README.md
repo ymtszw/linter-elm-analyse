@@ -4,14 +4,16 @@ Lint your Elm code with [elm-analyse] in Atom Editor. Still very early in develo
 
 [elm-analyse]: https://github.com/stil4m/elm-analyse
 
-Currently no configuration. Lints on change saved. `elm-analyse` must be installed globally.
+Depends on:
+
+- [elm-analyse]
+- [Linter](https://github.com/steelbrain/linter)
+
+Currently no configuration. `elm-analyse` must be installed globally.
 
 Working directory is always current project root.
 Both `elm-package.json` and `elm-analyse.json` must be found there.
 
-Depends on:
-
-- [Linter](https://github.com/steelbrain/linter)
 
 ## How it looks
 

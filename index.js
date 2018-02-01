@@ -13,6 +13,10 @@ export function deactivate() {
 
 const child_process = require('child_process')
 
+let running = false
+
+let recentResults = []
+
 export function provideLinter() {
   return {
     name: 'elm-analyse',
@@ -20,28 +24,33 @@ export function provideLinter() {
     lintsOnChange: true,
     grammarScopes: ['source.elm'],
     lint(textEditor) {
-      const cwd = atom.project.getPaths()[0]
-      return new Promise(function(resolve, reject) {
-        child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout, stderr) {
-          if (error) {
-            try {
-              const result = JSON.parse(lastline(stdout.toString()))
-              const nestedLintMessages = result.messages.map(function(m) { return formatResult(m, cwd) })
-              const lintMessages = [].concat(...nestedLintMessages)
-              resolve(lintMessages)
-            } catch (e) {
-              atom.notifications.addError("linter-elm-analyse", {
-                description: stdout.toString(),
-                dismissable: true,
-                stack: e.stack
-              })
-              resolve([])
+      if (running) {
+        return recentResults
+      } else {
+        const cwd = atom.project.getPaths()[0]
+        return new Promise(function(resolve, reject) {
+          running = true
+          child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout, stderr) {
+            if (error) {
+              try {
+                const result = JSON.parse(lastline(stdout.toString()))
+                const nestedLintMessages = result.messages.map(function(m) { return formatResult(m, cwd) })
+                const lintMessages = [].concat(...nestedLintMessages)
+                resolveWithMutableState(resolve, lintMessages)
+              } catch (e) {
+                atom.notifications.addError("linter-elm-analyse", {
+                  description: stdout.toString(),
+                  dismissable: true,
+                  stack: e.stack
+                })
+                resolveWithMutableState(resolve, [], false)
+              }
+            } else {
+              resolveWithMutableState(resolve, [])
             }
-          } else {
-            resolve([])
-          }
+          })
         })
-      })
+      }
     }
   }
 }
@@ -79,4 +88,12 @@ function singleMessage(type, file, desc, props, range, cwd) {
 
 function duplicateByRanges(type, file, desc, ranges, cwd) {
   ranges.map(function([l1, c1, l2, c2]) { singleMessage(type, file, desc, [[l1, c1], [l2, c2]], cwd) })
+}
+
+function resolveWithMutableState(resolve, results, updateRecent = true) {
+  running = false
+  if (updateRecent) {
+    recentResults = results
+  }
+  resolve(results)
 }

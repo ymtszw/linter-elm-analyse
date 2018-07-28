@@ -63,6 +63,7 @@ function onJSONParseError(e, data, resolve) {
     description: `
 Failed to parse the output JSON from elm-analyse.
 Likely due to too large output. (> 8192 bytes)
+
 See development console for the actual output.
 Help wanted to resolve this issue!
 <https://github.com/ymtszw/linter-elm-analyse/issues/2>
@@ -73,7 +74,7 @@ or use elm-analyse from your terminal.
     dismissable: true,
     stack: e.stack || e.toString()
   })
-  resolveWithMutableState(resolve, [], false)
+  resolveWithMutableState(resolve, recentResults, false)
 }
 
 function lastline(stdout) {

@@ -29,31 +29,57 @@ export function provideLinter() {
       if (running) {
         return recentResults
       } else {
-        const cwd = atom.project.getPaths()[0]
+        const bufferFileDir = path.dirname(textEditor.getPath())
         return new Promise(function(resolve, reject) {
-          running = true
-          child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout, stderr) {
-            if (error) {
-              try {
-                const result = JSON.parse(lastline(stdout.toString()))
-                const nestedLintMessages = result.messages.map(function(m) { return formatResult(m, cwd) })
-                const lintMessages = [].concat(...nestedLintMessages)
-                resolveWithMutableState(resolve, lintMessages)
-              } catch (e) {
-                atom.notifications.addError("linter-elm-analyse", {
-                  description: stdout.toString(),
-                  dismissable: true,
-                  stack: e.stack
-                })
-                resolveWithMutableState(resolve, [], false)
+          withElmProjectRoot(bufferFileDir, onElmProjectNotFound(resolve), function(cwd) {
+            running = true
+            child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout) {
+              if(error) {
+                // Note: elm-analyse exits with code non-zero when warnings are found
+                try {
+                  const result = JSON.parse(lastline(stdout.toString()))
+                  const nestedLintMessages = result.messages.map(function(m) { return formatResult(m, cwd) })
+                  const lintMessages = [].concat(...nestedLintMessages) // Flattening
+                  resolveWithMutableState(resolve, lintMessages)
+                } catch (e) {
+                  onJSONParseError(e, stdout, resolve)
+                }
+              } else {
+                resolveWithMutableState(resolve, [])
               }
-            } else {
-              resolveWithMutableState(resolve, [])
-            }
+            })
           })
         })
       }
     }
+  }
+}
+
+function withElmProjectRoot(currentDir, cbErr, cbCwd) {
+  const root = path.parse(currentDir).root
+  fs.access(path.join(currentDir, 'elm-package.json'), function(error) {
+    if (error) {
+      if (error.code === 'ENOENT') {
+        if (currentDir === root) {
+          return cbErr()
+        } else {
+          const parentDir = path.dirname(currentDir)
+          return withElmProjectRoot(parentDir, cbErr, cbCwd)
+        }
+      } else {
+        // Other errors, likely permission-related
+        return cbErr()
+      }
+    } else {
+      return cbCwd(currentDir)
+    }
+  })
+}
+
+function onElmProjectNotFound(resolve) {
+  return function() {
+    atom.notifications.addError("[linter-elm-analyse] `elm-package.json` file cannot be found!", {dismissable: true})
+    resolveWithMutableState(resolve, [])
   }
 }
 

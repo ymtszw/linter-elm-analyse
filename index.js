@@ -12,6 +12,8 @@ export function deactivate() {
 }
 
 const child_process = require('child_process')
+const path = require('path')
+const fs = require('fs')
 
 let running = false
 
@@ -27,32 +29,78 @@ export function provideLinter() {
       if (running) {
         return recentResults
       } else {
-        const cwd = atom.project.getPaths()[0]
+        const bufferFileDir = path.dirname(textEditor.getPath())
         return new Promise(function(resolve, reject) {
-          running = true
-          child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout, stderr) {
-            if (error) {
-              try {
-                const result = JSON.parse(lastline(stdout.toString()))
-                const nestedLintMessages = result.messages.map(function(m) { return formatResult(m, cwd) })
-                const lintMessages = [].concat(...nestedLintMessages)
-                resolveWithMutableState(resolve, lintMessages)
-              } catch (e) {
-                atom.notifications.addError("linter-elm-analyse", {
-                  description: stdout.toString(),
-                  dismissable: true,
-                  stack: e.stack
-                })
-                resolveWithMutableState(resolve, [], false)
+          withElmProjectRoot(bufferFileDir, onElmProjectNotFound(resolve), function(cwd) {
+            running = true
+            child_process.exec('elm-analyse --format=json', {cwd: cwd, env: process.env}, function(error, stdout) {
+              if(error) {
+                // Note: elm-analyse exits with code non-zero when warnings are found
+                try {
+                  const result = JSON.parse(lastline(stdout.toString()))
+                  const nestedLintMessages = result.messages.map(function(m) { return formatResult(m, cwd) })
+                  const lintMessages = [].concat(...nestedLintMessages) // Flattening
+                  resolveWithMutableState(resolve, lintMessages)
+                } catch (e) {
+                  onJSONParseError(e, stdout, resolve)
+                }
+              } else {
+                resolveWithMutableState(resolve, [])
               }
-            } else {
-              resolveWithMutableState(resolve, [])
-            }
+            })
           })
         })
       }
     }
   }
+}
+
+function withElmProjectRoot(currentDir, cbErr, cbCwd) {
+  const root = path.parse(currentDir).root
+  fs.access(path.join(currentDir, 'elm-package.json'), function(error) {
+    if (error) {
+      if (error.code === 'ENOENT') {
+        if (currentDir === root) {
+          return cbErr()
+        } else {
+          const parentDir = path.dirname(currentDir)
+          return withElmProjectRoot(parentDir, cbErr, cbCwd)
+        }
+      } else {
+        // Other errors, likely permission-related
+        return cbErr()
+      }
+    } else {
+      return cbCwd(currentDir)
+    }
+  })
+}
+
+function onElmProjectNotFound(resolve) {
+  return function() {
+    atom.notifications.addError("[linter-elm-analyse] `elm-package.json` file cannot be found!", {dismissable: true})
+    resolveWithMutableState(resolve, [])
+  }
+}
+
+function onJSONParseError(e, data, resolve) {
+  console.log(`[linter-elm-analyse] elm-analyse output:\n${data}`)
+  atom.notifications.addError("[linter-elm-analyse] Failed to parse elm-analyse output!", {
+    description: `
+Failed to parse the output JSON from elm-analyse.
+Likely due to too large output. (> 8192 bytes)
+
+See development console for the actual output.
+Help wanted to resolve this issue!
+<https://github.com/ymtszw/linter-elm-analyse/issues/2>
+
+For the mean time, try opt-out frequently reported checks in \`elm-analyse.json\`,
+or use elm-analyse from your terminal.
+    `,
+    dismissable: true,
+    stack: e.stack || e.toString()
+  })
+  resolveWithMutableState(resolve, recentResults, false)
 }
 
 function lastline(stdout) {
@@ -67,12 +115,20 @@ function formatResult({file, type, data}, cwd) {
   } else if (data.properties.ranges) {
     const ranges = data.properties.ranges
     return duplicateByRanges(type, file, data.description, data.properties, ranges, cwd)
+  } else if (data.properties.range1 && data.properties.range2) {
+    const [l11, c11, l12, c12] = data.properties.range1
+    const [l21, c21, l22, c22] = data.properties.range2
+    return [
+      singleMessage(type, file, data.description, data.properties, [[l11, c11], [l12, c12]], cwd),
+      singleMessage(type, file, data.description, data.properties, [[l21, c21], [l22, c22]], cwd)
+    ]
   } else {
+    // Fall back to the origin; could not find line-column pairs. Logging for improvement
+    console.log('[linter-elm-analyse] Could not parse line-column pairs:')
+    console.dir(data)
     return [ singleMessage(type, file, data.description, data.properties, [[0, 0], [0, 0]], cwd) ]
   }
 }
-
-const path = require('path')
 
 function singleMessage(type, file, desc, props, range, cwd) {
   return {

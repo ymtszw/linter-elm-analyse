@@ -69,7 +69,17 @@ function formatResult({file, type, data}, cwd) {
   } else if (data.properties.ranges) {
     const ranges = data.properties.ranges
     return duplicateByRanges(type, file, data.description, data.properties, ranges, cwd)
+  } else if (data.properties.range1 && data.properties.range2) {
+    const [l11, c11, l12, c12] = data.properties.range1
+    const [l21, c21, l22, c22] = data.properties.range2
+    return [
+      singleMessage(type, file, data.description, data.properties, [[l11, c11], [l12, c12]], cwd),
+      singleMessage(type, file, data.description, data.properties, [[l21, c21], [l22, c22]], cwd)
+    ]
   } else {
+    // Fall back to the origin; could not find line-column pairs. Logging for improvement
+    console.log('[linter-elm-analyse] Could not parse line-column pairs:')
+    console.dir(data)
     return [ singleMessage(type, file, data.description, data.properties, [[0, 0], [0, 0]], cwd) ]
   }
 }

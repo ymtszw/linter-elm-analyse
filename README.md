@@ -11,10 +11,10 @@ Depends on:
 
 [linter]: https://github.com/steelbrain/linter
 
-Currently no configuration. [elm-analyse] must be installed globally.
+Currently no configuration. [elm-analyse] must be installed in your `PATH`.
 
-Working directory is always current project root.
-Both `elm-package.json` and `elm-analyse.json` must be found there.
+Working directory will be the most closest parent directory with `elm-package.json` in it.
+`elm-analyse.json` must be found there too.
 
 ## How it looks
 
@@ -22,7 +22,7 @@ Both `elm-package.json` and `elm-analyse.json` must be found there.
 
 ## Alternative
 
-If you prefer running [elm-analyse] on-demand, check out [atom-build] and [atom-build-elm-analyse].
+If you prefer running [elm-analyse] on-demand, check out [atom-build] and [build-elm-analyse].
 
 [atom-build] uses [linter] to show errors and warnings so you get the similar results.
 
@@ -30,4 +30,4 @@ Since [elm-analyse] usually takes longer time compared to per-file linters/forma
 you might get better experience this way.
 
 [atom-build]: https://github.com/noseglid/atom-build
-[atom-build-elm-analyse]: https://github.com/ymtszw/atom-build-elm-analyse
+[build-elm-analyse]: https://github.com/ymtszw/build-elm-analyse

@@ -12,6 +12,8 @@ export function deactivate() {
 }
 
 const child_process = require('child_process')
+const path = require('path')
+const fs = require('fs')
 
 let running = false
 
@@ -71,8 +73,6 @@ function formatResult({file, type, data}, cwd) {
     return [ singleMessage(type, file, data.description, data.properties, [[0, 0], [0, 0]], cwd) ]
   }
 }
-
-const path = require('path')
 
 function singleMessage(type, file, desc, props, range, cwd) {
   return {

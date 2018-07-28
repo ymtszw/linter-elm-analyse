@@ -57,6 +57,25 @@ export function provideLinter() {
   }
 }
 
+function onJSONParseError(e, data, resolve) {
+  console.log(`[linter-elm-analyse] elm-analyse output:\n${data}`)
+  atom.notifications.addError("[linter-elm-analyse] Failed to parse elm-analyse output!", {
+    description: `
+Failed to parse the output JSON from elm-analyse.
+Likely due to too large output. (> 8192 bytes)
+See development console for the actual output.
+Help wanted to resolve this issue!
+<https://github.com/ymtszw/linter-elm-analyse/issues/2>
+
+For the mean time, try opt-out frequently reported checks in \`elm-analyse.json\`,
+or use elm-analyse from your terminal.
+    `,
+    dismissable: true,
+    stack: e.stack || e.toString()
+  })
+  resolveWithMutableState(resolve, [], false)
+}
+
 function lastline(stdout) {
   const lines = stdout.trim().split("\n")
   return lines[lines.length - 1]
